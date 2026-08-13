@@ -13,12 +13,12 @@ html, body { width:100%; height:100%; background:#000; overflow:hidden; font-fam
 video { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; opacity:0; z-index:1; }
 canvas { position:absolute; top:0; left:0; width:100%; height:100%; z-index:2; display:block; }
 #ui { position:absolute; top:0; left:0; width:100%; height:100%; z-index:10; pointer-events:none; display:flex; flex-direction:column; justify-content:space-between; }
-#top { display:flex; justify-content:space-between; align-items:center; padding:15px 20px; background:linear-gradient(to bottom,rgba(0,0,0,0.9),transparent); pointer-events:auto; }
+#top { display:flex; justify-content:space-between; align-items:center; padding:max(15px, env(safe-area-inset-top)) 20px 15px 20px; background:linear-gradient(to bottom,rgba(0,0,0,0.9),transparent); pointer-events:auto; }
 #top h1 { font-size:14px; letter-spacing:3px; text-shadow:0 0 10px #0f0; }
 #fps { font-size:12px; color:#0f0; text-shadow:0 0 5px #0f0; }
 .btn { background:rgba(0,0,0,0.6); border:1px solid #0f0; color:#0f0; border-radius:50%; width:42px;height:42px; display:flex; align-items:center; justify-content:center; font-size:18px; cursor:pointer; pointer-events:auto; backdrop-filter:blur(4px); }
 .btn:active { background:#0f0; color:#000; }
-#bottom { padding:0 0 35px 0; background:linear-gradient(to top,rgba(0,0,0,0.95),transparent); pointer-events:auto; }
+#bottom { padding:0 0 max(35px, env(safe-area-inset-bottom)) 0; background:linear-gradient(to top,rgba(0,0,0,0.95),transparent); pointer-events:auto; }
 #strip { display:flex; gap:8px; padding:10px 15px; overflow-x:auto; scrollbar-width:none; margin-bottom:15px; }
 #strip::-webkit-scrollbar { display:none; }
 .fx { flex-shrink:0; padding:8px 14px; border:1px solid #222; background:rgba(0,0,0,0.7); color:#666; border-radius:20px; font-size:12px; cursor:pointer; white-space:nowrap; transition:all 0.2s; font-family:inherit; }
@@ -33,7 +33,7 @@ canvas { position:absolute; top:0; left:0; width:100%; height:100%; z-index:2; d
 #flash { position:absolute; top:0; left:0; width:100%; height:100%; background:#fff; opacity:0; pointer-events:none; z-index:15; transition:opacity 0.08s; }
 #toast { position:absolute; top:90px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.85); border:1px solid #0f0; color:#0f0; padding:10px 24px; border-radius:20px; font-size:13px; z-index:25; opacity:0; transition:opacity 0.3s; pointer-events:none; white-space:nowrap; }
 #toast.show { opacity:1; }
-#start { position:absolute; top:0; left:0; width:100%; height:100%; background:#000; z-index:50; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; pointer-events:auto; padding:20px; text-align:center; }
+padding:max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom)) 20px;
 #start h1 { font-size:26px; text-shadow:0 0 20px #0f0; letter-spacing:2px; }
 #start p { color:#777; font-size:13px; line-height:1.6; max-width:320px; }
 #start-btn { padding:16px 48px; background:transparent; border:2px solid #0f0; color:#0f0; font-size:16px; font-family:inherit; border-radius:30px; cursor:pointer; letter-spacing:3px; margin-top:10px; box-shadow:0 0 20px rgba(0,255,0,0.15); }
@@ -48,6 +48,22 @@ canvas { position:absolute; top:0; left:0; width:100%; height:100%; z-index:2; d
 .gitem { aspect-ratio:3/4; background:#111; position:relative; overflow:hidden; }
 .gitem img { width:100%; height:100%; object-fit:cover; }
 .gitem button { position:absolute; top:3px; right:3px; background:rgba(255,0,0,0.8); color:#fff; border:none; width:24px;height:24px; border-radius:50%; font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+#zoom { position:absolute; right:15px; bottom:125px; width:130px; z-index:20; pointer-events:auto; opacity:0; transition:opacity 0.3s; -webkit-appearance:none; appearance:none; height:3px; background:rgba(0,255,0,0.4); border-radius:2px; outline:none; }
+#zoom::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:#0f0; box-shadow:0 0 8px #0f0; cursor:pointer; border:none; }
+zoomSlider.addEventListener('input', () => {
+  if (track && track.getCapabilities().zoom) {
+    track.applyConstraints({ advanced: [{ zoom: parseFloat(zoomSlider.value) }] }).catch(()=>{});
+  }
+});
+
+canvas.addEventListener('click', async () => {
+  if (!track) return;
+  try {
+    await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+    showToast('🔍 Фокус');
+  } catch(e) {}
+});
+
 </style>
 </head>
 <body>
@@ -91,6 +107,7 @@ canvas { position:absolute; top:0; left:0; width:100%; height:100%; z-index:2; d
         <button id="shutter"></button>
         <button id="gal">🖼️</button>
       </div>
+      <input type="range" id="zoom" min="1" max="10" step="0.1" value="1">
     </div>
   </div>
 
@@ -126,7 +143,8 @@ let facingMode = 'environment';
 let frameCount = 0;
 let lastTime = performance.now();
 let isRunning = false;
-
+let track = null;
+const zoomSlider = document.getElementById('zoom');
 const vs = `
 attribute vec2 a_pos;
 varying vec2 v_uv;
@@ -166,16 +184,21 @@ demon: `void main(){
 
 glitch: `void main(){
   vec2 uv = v_uv;
-  float t = u_time;
-  float block = floor(uv.y * 20.0);
-  float shift = (fract(sin(block * 123.45 + t * 6.0) * 43758.5) - 0.5) * 0.06;
-  uv.x += shift * step(0.88, fract(sin(block * 45.23) * 43758.5));
-  float r = texture2D(u_tex, uv + vec2(0.012 * sin(t * 15.0), 0.0)).r;
+  float shift = 0.008;
+  float r = texture2D(u_tex, uv + vec2(shift, 0.0)).r;
   float g = texture2D(u_tex, uv).g;
-  float b = texture2D(u_tex, uv - vec2(0.012 * sin(t * 15.0), 0.0)).b;
-  float scan = step(0.5, fract(uv.y * 200.0 + t * 10.0));
-  vec3 col = vec3(r,g,b) * (0.7 + 0.3 * scan);
-  col += (fract(sin(dot(uv, vec2(12.9898,78.233)) + t) * 43758.5453) - 0.5) * 0.2;
+  float b = texture2D(u_tex, uv - vec2(shift, 0.0)).b;
+  vec3 col = vec3(r, g, b);
+  float block = floor(uv.y * 16.0);
+  float offset = fract(sin(block * 12.34) * 43758.5);
+  if(offset > 0.7) {
+    float move = (fract(sin(block * 56.78) * 23421.3) - 0.5) * 0.04;
+    col = texture2D(u_tex, uv + vec2(move, 0.0)).rgb;
+    col.r = texture2D(u_tex, uv + vec2(move + 0.005, 0.0)).r;
+    col.b = texture2D(u_tex, uv + vec2(move - 0.005, 0.0)).b;
+  }
+  float noise = fract(sin(dot(uv * 50.0, vec2(12.9898,78.233))) * 43758.5453);
+  col += (noise - 0.5) * 0.08;
   gl_FragColor = vec4(col, 1.0);
 }`,
 
@@ -207,40 +230,49 @@ pixel: `void main(){
 }`,
 
 nightmare: `void main(){
-  vec2 uv = v_uv;
-  float t = u_time;
-  uv.x += sin(uv.y * 10.0 + t * 2.0) * 0.04;
-  uv.y += cos(uv.x * 10.0 + t * 1.7) * 0.04;
-  uv.x += sin(uv.y * 18.0 - t * 3.0) * 0.015;
-  uv += vec2(sin(t * 0.7) * 0.015, cos(t * 0.6) * 0.015);
-  gl_FragColor = texture2D(u_tex, uv);
+  vec4 c = texture2D(u_tex, v_uv);
+  float lum = dot(c.rgb, vec3(0.299,0.587,0.114));
+  vec3 col = c.rgb;
+  col = mix(vec3(0.05,0.0,0.0), col, smoothstep(0.0, 0.4, lum));
+  col = mix(col, vec3(0.9,1.0,0.8), smoothstep(0.6, 1.0, lum) * 0.5);
+  col = pow(col, vec3(1.6));
+  gl_FragColor = vec4(col, 1.0);
 }`,
 
 mirror: `void main(){
   vec2 uv = v_uv;
-  uv.x = abs(uv.x * 2.0 - 1.0);
-  gl_FragColor = texture2D(u_tex, uv);
+  vec2 m = fract(uv * 2.0);
+  vec4 c1 = texture2D(u_tex, vec2(m.x, uv.y));
+  vec4 c2 = texture2D(u_tex, vec2(1.0-m.x, uv.y));
+  vec4 c3 = texture2D(u_tex, vec2(uv.x, 1.0-m.y));
+  vec4 c4 = texture2D(u_tex, vec2(1.0-m.x, 1.0-m.y));
+  vec4 col = mix(c1, c2, step(0.5, uv.x));
+  col = mix(col, mix(c3, c4, step(0.5, uv.x)), step(0.5, uv.y));
+  float line = step(0.49, abs(fract(uv.x * 2.0) - 0.5)) + step(0.49, abs(fract(uv.y * 2.0) - 0.5));
+  col.rgb *= (1.0 - line * 0.6);
+  gl_FragColor = col;
 }`,
 
 kaleid: `void main(){
-  vec2 uv = v_uv - 0.5;
-  float r = length(uv);
-  float a = atan(uv.y, uv.x);
-  float seg = 6.28318 / 5.0;
-  a = mod(a + seg/2.0, seg) - seg/2.0;
-  uv = vec2(cos(a), sin(a)) * r + 0.5;
-  gl_FragColor = texture2D(u_tex, uv);
+  vec2 uv = v_uv;
+  uv.x = abs(uv.x - 0.5) + 0.5;
+  vec4 c = texture2D(u_tex, uv);
+  float lum = dot(c.rgb, vec3(0.299,0.587,0.114));
+  float t = smoothstep(0.35, 0.55, lum);
+  vec3 ink = mix(vec3(0.02,0.02,0.05), vec3(0.85,0.9,0.95), t);
+  ink += vec3(0.15,0.0,0.0) * smoothstep(0.3, 0.7, lum) * (1.0 - t);
+  gl_FragColor = vec4(ink, 1.0);
 }`,
 
 deep: `void main(){
   vec4 c = texture2D(u_tex, v_uv);
-  vec3 col = (c.rgb - 0.5) * 2.8 + 0.5;
-  col = clamp(col, 0.0, 1.0);
-  col.r = pow(col.r, 0.75);
-  col.b = pow(col.b, 1.3);
-  float n = fract(sin(dot(v_uv, vec2(12.9898,78.233)) + u_time) * 43758.5453);
-  col += (n - 0.5) * 0.12;
-  col = clamp(col, 0.0, 1.0);
+  vec3 col = c.rgb * 0.6;
+  float n = fract(sin(dot(v_uv * 120.0 + floor(u_time * 60.0) * 0.1, vec2(12.9898,78.233))) * 43758.5453);
+  float n2 = fract(sin(dot(v_uv * 80.0, vec2(93.9898,47.233))) * 24658.5453);
+  col += vec3(n, n * 0.8, n * 0.9) * 0.25;
+  col += vec3(n2 * 0.15);
+  float scan = step(0.5, fract(v_uv.y * 100.0));
+  col *= (0.85 + 0.15 * scan);
   gl_FragColor = vec4(col, 1.0);
 }`,
 
@@ -272,18 +304,14 @@ wave: `void main(){
 
 void: `void main(){
   vec4 c = texture2D(u_tex, v_uv);
-  float b = dot(c.rgb, vec3(0.299,0.587,0.114));
-  vec3 col = vec3(0.0, b * 1.5, 0.0);
-  float n = fract(sin(dot(v_uv * 80.0, vec2(12.9898,78.233)) + u_time * 8.0) * 43758.5453);
-  col += n * 0.12;
-  float vig = 1.0 - length(v_uv - 0.5) * 2.2;
+  vec3 col = 1.0 - c.rgb;
+  col.rb = col.br;
+  col = pow(col, vec3(1.3));
+  float vig = 1.0 - length(v_uv - 0.5) * 1.4;
   col *= clamp(vig, 0.0, 1.0);
-  col += vec3(0.02, 0.08, 0.02);
   gl_FragColor = vec4(col, 1.0);
 }`
 };
-
-
 
 
 
@@ -406,6 +434,17 @@ async function startCamera(){
     };
     currentStream = await navigator.mediaDevices.getUserMedia(constraints);
     video.srcObject = currentStream;
+    track = currentStream.getVideoTracks()[0];
+    const caps = track.getCapabilities();
+    if (caps.zoom) {
+      zoomSlider.max = caps.zoom.max;
+      zoomSlider.min = caps.zoom.min;
+      zoomSlider.step = caps.zoom.step || 0.1;
+      zoomSlider.value = track.getSettings().zoom || caps.zoom.min || 1;
+      zoomSlider.style.opacity = '0.6';
+    } else {
+      zoomSlider.style.display = 'none';
+    }
     await new Promise(r => { video.onloadedmetadata = () => { video.play(); r(); }; });
     initWebGL();
     document.getElementById('start').style.display = 'none';
