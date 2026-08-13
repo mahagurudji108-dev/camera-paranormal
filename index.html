@@ -48,7 +48,7 @@ canvas { position:absolute; top:0; left:0; width:100%; height:100%; z-index:2; d
 .gitem { aspect-ratio:3/4; background:#111; position:relative; overflow:hidden; }
 .gitem img { width:100%; height:100%; object-fit:cover; }
 .gitem button { position:absolute; top:3px; right:3px; background:rgba(255,0,0,0.8); color:#fff; border:none; width:24px;height:24px; border-radius:50%; font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
-#zoom { position:absolute; right:15px; bottom:125px; width:130px; z-index:20; pointer-events:auto; opacity:0; transition:opacity 0.3s; -webkit-appearance:none; appearance:none; height:3px; background:rgba(0,255,0,0.4); border-radius:2px; outline:none; }
+#zoom { position:absolute; right:15px; bottom:125px; width:130px; z-index:20; pointer-events:auto; opacity:0.7; transition:opacity 0.3s; -webkit-appearance:none; appearance:none; height:3px; background:rgba(0,255,0,0.4); border-radius:2px; outline:none; }
 #zoom::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:#0f0; box-shadow:0 0 8px #0f0; cursor:pointer; border:none; }
 
 </style>
@@ -132,12 +132,27 @@ let lastTime = performance.now();
 let isRunning = false;
 let track = null;
 const zoomSlider = document.getElementById('zoom');
+
 const vs = `
 attribute vec2 a_pos;
 varying vec2 v_uv;
+uniform float u_canvasAspect;
+uniform float u_videoAspect;
+uniform float u_zoom;
 void main(){
-  v_uv = a_pos * 0.5 + 0.5;
-  v_uv.y = 1.0 - v_uv.y;
+  vec2 uv = a_pos * 0.5 + 0.5;
+  uv.y = 1.0 - uv.y;
+  float ca = u_canvasAspect;
+  float va = u_videoAspect;
+  if (ca > va) {
+    float s = va / ca;
+    uv.y = (uv.y - 0.5) * s + 0.5;
+  } else {
+    float s = ca / va;
+    uv.x = (uv.x - 0.5) * s + 0.5;
+  }
+  uv = (uv - 0.5) / max(u_zoom, 0.1) + 0.5;
+  v_uv = uv;
   gl_Position = vec4(a_pos, 0.0, 1.0);
 }`;
 
@@ -386,6 +401,11 @@ function setUniforms(){
   gl.uniform1f(gl.getUniformLocation(currentProgram, 'u_time'), performance.now() / 1000);
   gl.uniform2f(gl.getUniformLocation(currentProgram, 'u_res'), canvas.width, canvas.height);
   gl.uniform2f(gl.getUniformLocation(currentProgram, 'u_videoRes'), video.videoWidth || 1280, video.videoHeight || 720);
+  const cAsp = canvas.width / Math.max(canvas.height, 1);
+  const vAsp = (video.videoWidth || 1280) / Math.max(video.videoHeight || 720, 1);
+  gl.uniform1f(gl.getUniformLocation(currentProgram, 'u_canvasAspect'), cAsp);
+  gl.uniform1f(gl.getUniformLocation(currentProgram, 'u_videoAspect'), vAsp);
+  gl.uniform1f(gl.getUniformLocation(currentProgram, 'u_zoom'), parseFloat(zoomSlider.value));
 }
 
 function render(){
@@ -423,14 +443,21 @@ async function startCamera(){
     video.srcObject = currentStream;
     track = currentStream.getVideoTracks()[0];
     const caps = track.getCapabilities();
+    
+
     if (caps.zoom) {
       zoomSlider.max = caps.zoom.max;
       zoomSlider.min = caps.zoom.min;
       zoomSlider.step = caps.zoom.step || 0.1;
       zoomSlider.value = track.getSettings().zoom || caps.zoom.min || 1;
-      zoomSlider.style.opacity = '0.6';
     } else {
-      zoomSlider.style.display = 'none';
+      zoomSlider.max = 4;
+      zoomSlider.min = 1;
+      zoomSlider.step = 0.1;
+      zoomSlider.value = 1;
+    }
+    zoomSlider.style.opacity = '0.8';
+
     }
     await new Promise(r => { video.onloadedmetadata = () => { video.play(); r(); }; });
     initWebGL();
@@ -530,9 +557,19 @@ zoomSlider.addEventListener('input', () => {
 canvas.addEventListener('click', async () => {
   if (!track) return;
   try {
-    await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
-    showToast('🔍 Фокус');
-  } catch(e) {}
+    const caps = track.getCapabilities();
+    const adv = {};
+    if (caps.focusMode) adv.focusMode = 'single-shot';
+    if (caps.focusDistance) adv.focusDistance = 0;
+    if (Object.keys(adv).length > 0) {
+      await track.applyConstraints({ advanced: [adv] });
+      showToast('🔍 Фокус');
+    } else {
+      showToast('Автофокус камеры');
+    }
+  } catch(e) {
+    showToast('Фокус недоступен');
+  }
 });
 </script>
 </body>
