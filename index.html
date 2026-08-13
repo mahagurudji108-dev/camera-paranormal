@@ -2,758 +2,491 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#000000">
-<title>👻 Paranormal Camera</title>
+<title>PARANORMAL CAMERA // WEBGL</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body {
-    width: 100%; height: 100%;
-    background: #000;
-    overflow: hidden;
-    font-family: 'Courier New', monospace;
-    color: #0f0;
-  }
-  #app {
-    position: relative;
-    width: 100%; height: 100%;
-  }
-  #video {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    object-fit: cover;
-    opacity: 0;
-    z-index: 1;
-  }
-  #canvas {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    z-index: 2;
-  }
-  #ui {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    z-index: 10;
-    pointer-events: none;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-  }
-  #top-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 15px 20px;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
-    pointer-events: auto;
-  }
-  #top-bar h1 {
-    font-size: 16px;
-    text-shadow: 0 0 10px #0f0;
-    letter-spacing: 2px;
-  }
-  #fps {
-    font-size: 12px;
-    color: #0f0;
-    text-shadow: 0 0 5px #0f0;
-  }
-  .btn-icon {
-    background: rgba(0,0,0,0.6);
-    border: 1px solid #0f0;
-    color: #0f0;
-    width: 40px; height: 40px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    cursor: pointer;
-    pointer-events: auto;
-    backdrop-filter: blur(5px);
-  }
-  .btn-icon:active { background: #0f0; color: #000; }
-  #bottom-bar {
-    padding: 0 0 30px 0;
-    background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
-    pointer-events: auto;
-  }
-  #effects-strip {
-    display: flex;
-    gap: 10px;
-    padding: 10px 15px;
-    overflow-x: auto;
-    scrollbar-width: none;
-    margin-bottom: 15px;
-  }
-  #effects-strip::-webkit-scrollbar { display: none; }
-  .effect-btn {
-    flex-shrink: 0;
-    padding: 8px 16px;
-    border: 1px solid #333;
-    background: rgba(0,0,0,0.7);
-    color: #888;
-    border-radius: 20px;
-    font-size: 13px;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: all 0.2s;
-    font-family: 'Courier New', monospace;
-  }
-  .effect-btn.active {
-    border-color: #0f0;
-    color: #0f0;
-    box-shadow: 0 0 10px rgba(0,255,0,0.3);
-    background: rgba(0,255,0,0.1);
-  }
-  .effect-btn:active { transform: scale(0.95); }
-  #shutter-row {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 30px;
-    padding: 0 20px;
-  }
-  #shutter {
-    width: 70px; height: 70px;
-    border-radius: 50%;
-    border: 3px solid #fff;
-    background: transparent;
-    position: relative;
-    cursor: pointer;
-    pointer-events: auto;
-  }
-  #shutter::after {
-    content: '';
-    position: absolute;
-    top: 4px; left: 4px;
-    width: 56px; height: 56px;
-    border-radius: 50%;
-    background: #fff;
-    transition: all 0.1s;
-  }
-  #shutter:active::after {
-    transform: scale(0.85);
-    background: #0f0;
-  }
-  #gallery-btn {
-    width: 45px; height: 45px;
-    border-radius: 8px;
-    border: 2px solid #fff;
-    background: rgba(255,255,255,0.1);
-    cursor: pointer;
-    pointer-events: auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-    overflow: hidden;
-  }
-  #gallery-btn img {
-    width: 100%; height: 100%;
-    object-fit: cover;
-  }
-  #flash {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: #fff;
-    opacity: 0;
-    pointer-events: none;
-    z-index: 20;
-    transition: opacity 0.1s;
-  }
-  #gallery-overlay {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: rgba(0,0,0,0.95);
-    z-index: 30;
-    display: none;
-    flex-direction: column;
-    pointer-events: auto;
-  }
-  #gallery-overlay.active { display: flex; }
-  #gallery-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 15px 20px;
-    border-bottom: 1px solid #222;
-  }
-  #gallery-header h2 { font-size: 16px; }
-  #close-gallery {
-    background: none;
-    border: 1px solid #0f0;
-    color: #0f0;
-    padding: 5px 15px;
-    border-radius: 15px;
-    cursor: pointer;
-    font-family: inherit;
-  }
-  #gallery-grid {
-    flex: 1;
-    overflow-y: auto;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 2px;
-    padding: 2px;
-  }
-  .gallery-item {
-    aspect-ratio: 3/4;
-    background: #111;
-    position: relative;
-    overflow: hidden;
-  }
-  .gallery-item img {
-    width: 100%; height: 100%;
-    object-fit: cover;
-  }
-  .gallery-item .del-btn {
-    position: absolute;
-    top: 2px; right: 2px;
-    background: rgba(255,0,0,0.7);
-    color: #fff;
-    border: none;
-    width: 24px; height: 24px;
-    border-radius: 50%;
-    font-size: 12px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  #start-screen {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: #000;
-    z-index: 50;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 20px;
-    pointer-events: auto;
-  }
-  #start-screen h1 {
-    font-size: 28px;
-    text-shadow: 0 0 20px #0f0;
-    margin-bottom: 10px;
-  }
-  #start-screen p {
-    color: #666;
-    font-size: 14px;
-    text-align: center;
-    padding: 0 30px;
-    line-height: 1.6;
-  }
-  #start-btn {
-    padding: 15px 50px;
-    background: transparent;
-    border: 2px solid #0f0;
-    color: #0f0;
-    font-size: 18px;
-    font-family: inherit;
-    border-radius: 30px;
-    cursor: pointer;
-    margin-top: 20px;
-    letter-spacing: 3px;
-    box-shadow: 0 0 20px rgba(0,255,0,0.2);
-  }
-  #start-btn:active { background: #0f0; color: #000; }
-  .scanlines {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba(0,0,0,0.15) 2px,
-      rgba(0,0,0,0.15) 4px
-    );
-    pointer-events: none;
-    z-index: 5;
-  }
-  #toast {
-    position: absolute;
-    top: 80px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0,0,0,0.8);
-    border: 1px solid #0f0;
-    color: #0f0;
-    padding: 10px 25px;
-    border-radius: 20px;
-    font-size: 14px;
-    z-index: 25;
-    opacity: 0;
-    transition: opacity 0.3s;
-    pointer-events: none;
-  }
-  #toast.show { opacity: 1; }
-  #error-msg {
-    color: #f00;
-    font-size: 13px;
-    text-align: center;
-    padding: 0 30px;
-    margin-top: 10px;
-    display: none;
-  }
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { width:100%; height:100%; background:#000; overflow:hidden; font-family:'Courier New',monospace; color:#0f0; }
+#app { position:relative; width:100%; height:100%; }
+video { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; opacity:0; z-index:1; }
+canvas { position:absolute; top:0; left:0; width:100%; height:100%; z-index:2; display:block; }
+#ui { position:absolute; top:0; left:0; width:100%; height:100%; z-index:10; pointer-events:none; display:flex; flex-direction:column; justify-content:space-between; }
+#top { display:flex; justify-content:space-between; align-items:center; padding:15px 20px; background:linear-gradient(to bottom,rgba(0,0,0,0.9),transparent); pointer-events:auto; }
+#top h1 { font-size:14px; letter-spacing:3px; text-shadow:0 0 10px #0f0; }
+#fps { font-size:12px; color:#0f0; text-shadow:0 0 5px #0f0; }
+.btn { background:rgba(0,0,0,0.6); border:1px solid #0f0; color:#0f0; border-radius:50%; width:42px;height:42px; display:flex; align-items:center; justify-content:center; font-size:18px; cursor:pointer; pointer-events:auto; backdrop-filter:blur(4px); }
+.btn:active { background:#0f0; color:#000; }
+#bottom { padding:0 0 35px 0; background:linear-gradient(to top,rgba(0,0,0,0.95),transparent); pointer-events:auto; }
+#strip { display:flex; gap:8px; padding:10px 15px; overflow-x:auto; scrollbar-width:none; margin-bottom:15px; }
+#strip::-webkit-scrollbar { display:none; }
+.fx { flex-shrink:0; padding:8px 14px; border:1px solid #222; background:rgba(0,0,0,0.7); color:#666; border-radius:20px; font-size:12px; cursor:pointer; white-space:nowrap; transition:all 0.2s; font-family:inherit; }
+.fx.active { border-color:#0f0; color:#0f0; box-shadow:0 0 12px rgba(0,255,0,0.3); background:rgba(0,255,0,0.1); }
+.fx:active { transform:scale(0.95); }
+#row { display:flex; justify-content:center; align-items:center; gap:30px; padding:0 20px; }
+#shutter { width:72px; height:72px; border-radius:50%; border:3px solid #fff; background:transparent; position:relative; cursor:pointer; pointer-events:auto; }
+#shutter::after { content:''; position:absolute; top:5px; left:5px; width:56px; height:56px; border-radius:50%; background:#fff; transition:all 0.1s; }
+#shutter:active::after { transform:scale(0.85); background:#0f0; }
+#gal { width:46px; height:46px; border-radius:8px; border:2px solid #fff; background:rgba(255,255,255,0.1); cursor:pointer; pointer-events:auto; display:flex; align-items:center; justify-content:center; font-size:20px; overflow:hidden; }
+#gal img { width:100%; height:100%; object-fit:cover; }
+#flash { position:absolute; top:0; left:0; width:100%; height:100%; background:#fff; opacity:0; pointer-events:none; z-index:15; transition:opacity 0.08s; }
+#toast { position:absolute; top:90px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.85); border:1px solid #0f0; color:#0f0; padding:10px 24px; border-radius:20px; font-size:13px; z-index:25; opacity:0; transition:opacity 0.3s; pointer-events:none; white-space:nowrap; }
+#toast.show { opacity:1; }
+#start { position:absolute; top:0; left:0; width:100%; height:100%; background:#000; z-index:50; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; pointer-events:auto; padding:20px; text-align:center; }
+#start h1 { font-size:26px; text-shadow:0 0 20px #0f0; letter-spacing:2px; }
+#start p { color:#777; font-size:13px; line-height:1.6; max-width:320px; }
+#start-btn { padding:16px 48px; background:transparent; border:2px solid #0f0; color:#0f0; font-size:16px; font-family:inherit; border-radius:30px; cursor:pointer; letter-spacing:3px; margin-top:10px; box-shadow:0 0 20px rgba(0,255,0,0.15); }
+#start-btn:active { background:#0f0; color:#000; }
+#err { color:#f00; font-size:12px; margin-top:8px; display:none; }
+#gallery { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.96); z-index:30; display:none; flex-direction:column; pointer-events:auto; }
+#gallery.active { display:flex; }
+#ghead { display:flex; justify-content:space-between; align-items:center; padding:15px 20px; border-bottom:1px solid #222; }
+#ghead h2 { font-size:15px; }
+#gclose { background:none; border:1px solid #0f0; color:#0f0; padding:6px 16px; border-radius:15px; cursor:pointer; font-family:inherit; font-size:13px; }
+#ggrid { flex:1; overflow-y:auto; display:grid; grid-template-columns:repeat(3,1fr); gap:2px; padding:2px; }
+.gitem { aspect-ratio:3/4; background:#111; position:relative; overflow:hidden; }
+.gitem img { width:100%; height:100%; object-fit:cover; }
+.gitem button { position:absolute; top:3px; right:3px; background:rgba(255,0,0,0.8); color:#fff; border:none; width:24px;height:24px; border-radius:50%; font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.scan { position:absolute; top:0; left:0; width:100%; height:100%; background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.12) 3px,rgba(0,0,0,0.12) 6px); pointer-events:none; z-index:5; }
 </style>
 </head>
 <body>
 
 <div id="app">
-  <div id="start-screen">
+  <div id="start">
     <h1>👻 PARANORMAL CAMERA</h1>
-    <p>Используй камеру телефона для создания паранормальных эффектов в реальном времени.<br><br>
-    Все фото сохраняются только на твоём устройстве.</p>
+    <p>GPU-ускоренные шейдеры в реальном времени.<br>Камера + WebGL = 60 FPS без тормозов.<br>Фото сохраняются только на устройстве.</p>
     <button id="start-btn">ВКЛЮЧИТЬ КАМЕРУ</button>
-    <div id="error-msg"></div>
+    <div id="err"></div>
   </div>
 
   <video id="video" autoplay playsinline muted></video>
-  <canvas id="canvas"></canvas>
-  <div class="scanlines"></div>
+  <canvas id="glcanvas"></canvas>
+  <div class="scan"></div>
   <div id="flash"></div>
   <div id="toast"></div>
 
   <div id="ui">
-    <div id="top-bar">
+    <div id="top">
       <div id="fps">● LIVE</div>
-      <h1>PARANORMAL CAM</h1>
-      <button class="btn-icon" id="switch-cam">🔄</button>
+      <h1>PARANORMAL // WEBGL</h1>
+      <button class="btn" id="switch-cam">🔄</button>
     </div>
-    <div id="bottom-bar">
-      <div id="effects-strip">
-        <button class="effect-btn active" data-effect="normal">📷 ОБЫЧНЫЙ</button>
-        <button class="effect-btn" data-effect="ghost">👻 ПРИЗРАК</button>
-        <button class="effect-btn" data-effect="glitch">💀 ГЛИТЧ</button>
-        <button class="effect-btn" data-effect="thermal">🔥 ТЕПЛО</button>
-        <button class="effect-btn" data-effect="negative">☠️ НЕГАТИВ</button>
-        <button class="effect-btn" data-effect="vintage">📽️ ВИНТАЖ</button>
-        <button class="effect-btn" data-effect="xray">💚 РЕНТГЕН</button>
-        <button class="effect-btn" data-effect="portal">🌀 ПОРТАЛ</button>
-        <button class="effect-btn" data-effect="matrix">🟢 МАТРИЦА</button>
-        <button class="effect-btn" data-effect="blood">🩸 КРОВЬ</button>
+    <div id="bottom">
+      <div id="strip">
+        <button class="fx active" data-fx="normal">📷 ОБЫЧНЫЙ</button>
+        <button class="fx" data-fx="demon">😈 ДЕМОН</button>
+        <button class="fx" data-fx="glitch">💀 ГЛИТЧ</button>
+        <button class="fx" data-fx="acid">🧪 КИСЛОТА</button>
+        <button class="fx" data-fx="pixel">👾 ПИКСЕЛИ</button>
+        <button class="fx" data-fx="nightmare">🩸 КОШМАР</button>
+        <button class="fx" data-fx="mirror">🪞 ЗЕРКАЛО</button>
+        <button class="fx" data-fx="kaleid">🔮 КАЛЕЙДО</button>
+        <button class="fx" data-fx="deep">🍗 DEEP</button>
+        <button class="fx" data-fx="xray">💚 РЕНТГЕН</button>
+        <button class="fx" data-fx="wave">🌊 ВОЛНА</button>
+        <button class="fx" data-fx="void">⚫ ПУСТОТА</button>
       </div>
-      <div id="shutter-row">
-        <button class="btn-icon" id="switch-cam2">🔄</button>
+      <div id="row">
+        <button class="btn" id="switch-cam2">🔄</button>
         <button id="shutter"></button>
-        <button id="gallery-btn">🖼️</button>
+        <button id="gal">🖼️</button>
       </div>
     </div>
   </div>
 
-  <div id="gallery-overlay">
-    <div id="gallery-header">
-      <h2>📁 ГАЛЕРЕЯ</h2>
-      <button id="close-gallery">ЗАКРЫТЬ</button>
-    </div>
-    <div id="gallery-grid"></div>
+  <div id="gallery">
+    <div id="ghead"><h2>📁 ГАЛЕРЕЯ</h2><button id="gclose">ЗАКРЫТЬ</button></div>
+    <div id="ggrid"></div>
   </div>
 </div>
 
 <script>
 const video = document.getElementById('video');
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d', { willReadFrequently: true });
-const startScreen = document.getElementById('start-screen');
+const canvas = document.getElementById('glcanvas');
 const startBtn = document.getElementById('start-btn');
+const errDiv = document.getElementById('err');
 const shutter = document.getElementById('shutter');
 const flash = document.getElementById('flash');
-const galleryBtn = document.getElementById('gallery-btn');
-const galleryOverlay = document.getElementById('gallery-overlay');
-const closeGallery = document.getElementById('close-gallery');
-const galleryGrid = document.getElementById('gallery-grid');
+const galBtn = document.getElementById('gal');
+const gallery = document.getElementById('gallery');
+const gclose = document.getElementById('gclose');
+const ggrid = document.getElementById('ggrid');
 const toast = document.getElementById('toast');
-const errorMsg = document.getElementById('error-msg');
-const effectBtns = document.querySelectorAll('.effect-btn');
-const switchCamBtns = [document.getElementById('switch-cam'), document.getElementById('switch-cam2')];
+const fxBtns = document.querySelectorAll('.fx');
+const fpsEl = document.getElementById('fps');
 
-let currentStream = null;
-let facingMode = 'environment';
-let currentEffect = 'normal';
-let isRunning = false;
+let gl, videoTex, uTime, uRes, uVideoRes, uTex;
+let currentFx = 'normal';
+let programs = {};
+let currentProgram = null;
+let positionBuf;
+let dpr = window.devicePixelRatio || 1;
 let photos = [];
+let facingMode = 'environment';
 let frameCount = 0;
 let lastTime = performance.now();
-let ghostOffset = 0;
-let glitchTimer = 0;
-let matrixDrops = [];
-let noiseCanvas = null;
-let noiseCtx = null;
+let isRunning = false;
 
-function initNoise() {
-  noiseCanvas = document.createElement('canvas');
-  noiseCanvas.width = 200;
-  noiseCanvas.height = 200;
-  noiseCtx = noiseCanvas.getContext('2d');
+const vs = `
+attribute vec2 a_pos;
+varying vec2 v_uv;
+void main(){
+  v_uv = a_pos * 0.5 + 0.5;
+  v_uv.y = 1.0 - v_uv.y;
+  gl_Position = vec4(a_pos, 0.0, 1.0);
+}`;
+
+const fsHeader = `
+precision mediump float;
+varying vec2 v_uv;
+uniform sampler2D u_tex;
+uniform float u_time;
+uniform vec2 u_res;
+uniform vec2 u_videoRes;
+`;
+
+const shaders = {
+normal: `void main(){ gl_FragColor = texture2D(u_tex, v_uv); }`,
+
+demon: `
+void main(){
+  vec4 c = texture2D(u_tex, v_uv);
+  float l = dot(c.rgb, vec3(0.299,0.587,0.114));
+  vec3 col = c.rgb * vec3(1.4, 0.4, 0.4);
+  float eye = smoothstep(0.75, 0.95, l);
+  col += vec3(2.0, 1.5, 1.5) * eye;
+  float vig = 1.0 - length(v_uv - 0.5) * 1.6;
+  col *= clamp(vig, 0.0, 1.0);
+  gl_FragColor = vec4(col, 1.0);
+}`,
+
+glitch: `
+void main(){
+  vec2 uv = v_uv;
+  float t = u_time;
+  float block = floor(uv.y * 24.0);
+  float shift = sin(block * 123.45 + t * 8.0) * 0.03;
+  uv.x += shift * step(0.85, fract(sin(block * 45.23) * 43758.5));
+  float r = texture2D(u_tex, uv + vec2(0.015 * sin(t * 12.0), 0.0)).r;
+  float g = texture2D(u_tex, uv).g;
+  float b = texture2D(u_tex, uv - vec2(0.015 * sin(t * 12.0), 0.0)).b;
+  float scan = step(0.5, fract(uv.y * 180.0));
+  vec3 col = vec3(r,g,b) * (0.75 + 0.25 * scan);
+  col += (fract(sin(dot(uv, vec2(12.9898,78.233))) * 43758.5453) - 0.5) * 0.15;
+  gl_FragColor = vec4(col, 1.0);
+}`,
+
+acid: `
+vec3 hueShift(vec3 c, float a){
+  float ca = cos(a), sa = sin(a);
+  mat3 m = mat3(
+    0.299 + 0.701*ca + 0.168*sa, 0.587 - 0.587*ca + 0.330*sa, 0.114 - 0.114*ca - 0.497*sa,
+    0.299 - 0.299*ca - 0.328*sa, 0.587 + 0.413*ca + 0.035*sa, 0.114 - 0.114*ca + 0.292*sa,
+    0.299 - 0.300*ca + 1.250*sa, 0.587 - 0.588*ca - 1.050*sa, 0.114 + 0.886*ca - 0.203*sa
+  );
+  return m * c;
+}
+void main(){
+  vec2 uv = v_uv;
+  uv.x += sin(uv.y * 6.0 + u_time * 1.5) * 0.04;
+  uv.y += cos(uv.x * 6.0 + u_time * 1.2) * 0.04;
+  vec4 c = texture2D(u_tex, uv);
+  vec3 col = hueShift(c.rgb, u_time * 0.8);
+  col = pow(col, vec3(1.3, 0.9, 1.1));
+  gl_FragColor = vec4(col, 1.0);
+}`,
+
+pixel: `
+void main(){
+  float pix = 48.0;
+  vec2 uv = floor(v_uv * pix) / pix;
+  vec4 c = texture2D(u_tex, uv);
+  c.rgb = floor(c.rgb * 3.0) / 3.0;
+  c.r *= 1.2; c.g *= 0.9; c.b *= 1.1;
+  gl_FragColor = c;
+}`,
+
+nightmare: `
+void main(){
+  vec4 c = texture2D(u_tex, v_uv);
+  vec3 col = 1.0 - c.rgb;
+  col.g *= 0.4;
+  col.b *= 0.2;
+  col = pow(col, vec3(1.6));
+  col += vec3(0.05, 0.0, 0.02);
+  gl_FragColor = vec4(col, 1.0);
+}`,
+
+mirror: `
+void main(){
+  vec2 uv = v_uv;
+  uv.x = abs(uv.x * 2.0 - 1.0);
+  gl_FragColor = texture2D(u_tex, uv);
+}`,
+
+kaleid: `
+void main(){
+  vec2 uv = v_uv - 0.5;
+  float r = length(uv);
+  float a = atan(uv.y, uv.x);
+  float seg = 6.28318 / 5.0;
+  a = mod(a + seg/2.0, seg) - seg/2.0;
+  uv = vec2(cos(a), sin(a)) * r + 0.5;
+  gl_FragColor = texture2D(u_tex, uv);
+}`,
+
+deep: `
+void main(){
+  vec4 c = texture2D(u_tex, v_uv);
+  vec3 col = (c.rgb - 0.5) * 2.8 + 0.5;
+  col = clamp(col, 0.0, 1.0);
+  col.r = pow(col.r, 0.75);
+  col.b = pow(col.b, 1.3);
+  float n = fract(sin(dot(v_uv, vec2(12.9898,78.233)) + u_time) * 43758.5453);
+  col += (n - 0.5) * 0.12;
+  col = clamp(col, 0.0, 1.0);
+  gl_FragColor = vec4(col, 1.0);
+}`,
+
+xray: `
+void main(){
+  vec2 ts = vec2(1.0 / u_videoRes.x, 1.0 / u_videoRes.y);
+  vec4 c = texture2D(u_tex, v_uv);
+  vec4 r = texture2D(u_tex, v_uv + vec2(ts.x, 0.0));
+  vec4 l = texture2D(u_tex, v_uv - vec2(ts.x, 0.0));
+  vec4 u = texture2D(u_tex, v_uv + vec2(0.0, ts.y));
+  vec4 d = texture2D(u_tex, v_uv - vec2(0.0, ts.y));
+  vec3 edge = abs(r.rgb - l.rgb) + abs(u.rgb - d.rgb);
+  float e = length(edge);
+  vec3 col = vec3(e * 2.5);
+  col = mix(vec3(0.0, e * 4.0, 0.0), col, 0.6);
+  gl_FragColor = vec4(col, 1.0);
+}`,
+
+wave: `
+void main(){
+  vec2 uv = v_uv;
+  uv.x += sin(uv.y * 12.0 + u_time * 3.0) * 0.04;
+  uv.y += cos(uv.x * 12.0 + u_time * 2.5) * 0.04;
+  gl_FragColor = texture2D(u_tex, uv);
+}`,
+
+void: `
+void main(){
+  vec2 ts = vec2(1.0 / u_videoRes.x, 1.0 / u_videoRes.y);
+  vec4 c = texture2D(u_tex, v_uv);
+  vec4 r = texture2D(u_tex, v_uv + vec2(ts.x, 0.0));
+  vec4 t = texture2D(u_tex, v_uv + vec2(0.0, ts.y));
+  vec3 edge = abs(c.rgb - r.rgb) + abs(c.rgb - t.rgb);
+  float e = smoothstep(0.08, 0.25, length(edge));
+  vec3 col = mix(vec3(0.02,0.02,0.02), vec3(0.9,0.9,0.95), e);
+  gl_FragColor = vec4(col, 1.0);
+}`
+};
+
+function initWebGL(){
+  gl = canvas.getContext('webgl', { preserveDrawingBuffer: true, alpha: false, antialias: false });
+  if(!gl) { alert('WebGL не поддерживается'); return; }
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+
+  const verts = new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]);
+  positionBuf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+
+  videoTex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, videoTex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  for(let name in shaders){
+    const prog = createProgram(vs, fsHeader + shaders[name]);
+    if(prog){
+      programs[name] = prog;
+      gl.useProgram(prog);
+      const aPos = gl.getAttribLocation(prog, 'a_pos');
+      gl.enableVertexAttribArray(aPos);
+      gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+    }
+  }
+  currentProgram = programs['normal'];
 }
 
-function initMatrix() {
-  const cols = Math.ceil(window.innerWidth / 20);
-  matrixDrops = [];
-  for (let i = 0; i < cols; i++) {
-    matrixDrops.push({ y: Math.random() * -100, speed: 2 + Math.random() * 4, chars: [] });
+function createShader(type, src){
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)){
+    console.error(gl.getShaderInfoLog(s));
+    gl.deleteShader(s);
+    return null;
+  }
+  return s;
+}
+
+function createProgram(vsSrc, fsSrc){
+  const v = createShader(gl.VERTEX_SHADER, vsSrc);
+  const f = createShader(gl.FRAGMENT_SHADER, fsSrc);
+  if(!v || !f) return null;
+  const p = gl.createProgram();
+  gl.attachShader(p, v);
+  gl.attachShader(p, f);
+  gl.linkProgram(p);
+  if(!gl.getProgramParameter(p, gl.LINK_STATUS)){
+    console.error(gl.getProgramInfoLog(p));
+    return null;
+  }
+  return p;
+}
+
+function resize(){
+  const w = Math.floor(window.innerWidth * dpr);
+  const h = Math.floor(window.innerHeight * dpr);
+  if(canvas.width !== w || canvas.height !== h){
+    canvas.width = w;
+    canvas.height = h;
+    gl.viewport(0, 0, w, h);
   }
 }
 
-async function startCamera() {
-  try {
-    if (currentStream) {
+function updateVideoTexture(){
+  if(video.readyState >= 2){
+    gl.bindTexture(gl.TEXTURE_2D, videoTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
+  }
+}
+
+function setUniforms(){
+  if(!currentProgram) return;
+  gl.uniform1i(gl.getUniformLocation(currentProgram, 'u_tex'), 0);
+  gl.uniform1f(gl.getUniformLocation(currentProgram, 'u_time'), performance.now() / 1000);
+  gl.uniform2f(gl.getUniformLocation(currentProgram, 'u_res'), canvas.width, canvas.height);
+  gl.uniform2f(gl.getUniformLocation(currentProgram, 'u_videoRes'), video.videoWidth || 1280, video.videoHeight || 720);
+}
+
+function render(){
+  if(!isRunning) return;
+  resize();
+  updateVideoTexture();
+  gl.useProgram(currentProgram);
+  setUniforms();
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+  frameCount++;
+  const now = performance.now();
+  if(now - lastTime >= 1000){
+    fpsEl.textContent = `● LIVE ${frameCount} FPS`;
+    frameCount = 0;
+    lastTime = now;
+  }
+  requestAnimationFrame(render);
+}
+
+async function startCamera(){
+  try{
+    if(currentStream){
       currentStream.getTracks().forEach(t => t.stop());
     }
     const constraints = {
       video: {
         facingMode: facingMode,
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
+        width: { ideal: 1920, min: 1280 },
+        height: { ideal: 1080, min: 720 }
       },
       audio: false
     };
     currentStream = await navigator.mediaDevices.getUserMedia(constraints);
     video.srcObject = currentStream;
-    await new Promise(resolve => {
-      video.onloadedmetadata = () => {
-        video.play();
-        resolve();
-      };
-    });
-    resizeCanvas();
-    startScreen.style.display = 'none';
+    await new Promise(r => { video.onloadedmetadata = () => { video.play(); r(); }; });
+    initWebGL();
+    document.getElementById('start').style.display = 'none';
     isRunning = true;
-    initNoise();
-    initMatrix();
-    requestAnimationFrame(renderLoop);
+    requestAnimationFrame(render);
     showToast('Камера активирована');
-  } catch (err) {
+  }catch(err){
     console.error(err);
-    let msg = 'Ошибка: ' + err.message;
-    if (location.protocol === 'file:') {
-      msg = '❌ Файл открыт локально. Браузер блокирует камеру. Нужен HTTPS или localhost. На телефоне используй Termux (python -m http.server) или залей на GitHub Pages.';
-    } else if (err.name === 'NotAllowedError') {
-      msg = '❌ Доступ к камере запрещён. Разреши доступ в настройках браузера.';
-    } else if (err.name === 'NotFoundError') {
-      msg = '❌ Камера не найдена.';
-    }
-    errorMsg.textContent = msg;
-    errorMsg.style.display = 'block';
+    let msg = err.message;
+    if(location.protocol === 'file:') msg = 'Открыто как файл. Браузер блокирует камеру. Используй localhost (Termux: python -m http.server 8000) или GitHub Pages.';
+    else if(err.name === 'NotAllowedError') msg = 'Доступ запрещён. Разреши камеру в настройках браузера.';
+    errDiv.textContent = '❌ ' + msg;
+    errDiv.style.display = 'block';
   }
 }
 
-function resizeCanvas() {
-  const w = video.videoWidth || window.innerWidth;
-  const h = video.videoHeight || window.innerHeight;
-  canvas.width = w;
-  canvas.height = h;
-}
-
-function switchCamera() {
+function switchCam(){
   facingMode = facingMode === 'environment' ? 'user' : 'environment';
   startCamera();
 }
 
-function renderLoop() {
-  if (!isRunning) return;
-  const w = canvas.width;
-  const h = canvas.height;
-  frameCount++;
-  const now = performance.now();
-  if (now - lastTime >= 1000) {
-    document.getElementById('fps').textContent = `● LIVE ${frameCount} FPS`;
-    frameCount = 0;
-    lastTime = now;
-  }
-  ctx.save();
-  if (facingMode === 'user') {
-    ctx.translate(w, 0);
-    ctx.scale(-1, 1);
-  }
-  ctx.drawImage(video, 0, 0, w, h);
-  ctx.restore();
-  applyEffect(w, h);
-  requestAnimationFrame(renderLoop);
-}
-
-function applyEffect(w, h) {
-  if (currentEffect === 'normal') return;
-  if (currentEffect === 'matrix') {
-    applyMatrix(w, h);
-    return;
-  }
-  const imageData = ctx.getImageData(0, 0, w, h);
-  const data = imageData.data;
-  switch (currentEffect) {
-    case 'ghost': applyGhost(data, w, h); break;
-    case 'glitch': applyGlitch(data, w, h); break;
-    case 'thermal': applyThermal(data); break;
-    case 'negative': applyNegative(data); break;
-    case 'vintage': applyVintage(data, w, h); break;
-    case 'xray': applyXRay(data); break;
-    case 'portal': applyPortal(data, w, h); break;
-    case 'blood': applyBlood(data); break;
-  }
-  ctx.putImageData(imageData, 0, 0);
-  if (currentEffect === 'ghost') drawGhostOverlay(w, h);
-  if (currentEffect === 'vintage') { drawVignette(w, h); drawScratches(w, h); }
-  if (currentEffect === 'glitch') drawGlitchLines(w, h);
-}
-
-function applyGhost(data, w, h) {
-  ghostOffset += 0.02;
-  const intensity = 0.4 + Math.sin(ghostOffset) * 0.2;
-  for (let i = 0; i < data.length; i += 4) {
-    data[i] = data[i] * (1 - intensity) + 180 * intensity;
-    data[i+1] = data[i+1] * (1 - intensity) + 220 * intensity;
-    data[i+2] = data[i+2] * (1 - intensity) + 255 * intensity;
-  }
-}
-
-function drawGhostOverlay(w, h) {
-  const time = Date.now() / 1000;
-  const x = w/2 + Math.sin(time*0.5)*50;
-  const y = h/2 + Math.cos(time*0.3)*30;
-  const radius = 80 + Math.sin(time)*20;
-  const g = ctx.createRadialGradient(x,y,0,x,y,radius);
-  g.addColorStop(0, 'rgba(200,230,255,0.15)');
-  g.addColorStop(0.5, 'rgba(150,200,255,0.08)');
-  g.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = g;
-  ctx.fillRect(0,0,w,h);
-  ctx.fillStyle = 'rgba(255,255,255,0.3)';
-  ctx.beginPath(); ctx.ellipse(x-25,y-10,8,12,0,0,Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(x+25,y-10,8,12,0,0,Math.PI*2); ctx.fill();
-}
-
-function applyGlitch(data, w, h) {
-  glitchTimer++;
-  if (glitchTimer % 5 !== 0) return;
-  for (let y = 0; y < h; y += 2) {
-    if (Math.random() > 0.9) {
-      const offset = Math.floor(Math.random()*40)-20;
-      const rowStart = y*w*4;
-      for (let x = 0; x < w; x++) {
-        const idx = rowStart + x*4;
-        const srcIdx = rowStart + ((x+offset+w)%w)*4;
-        if (Math.random() > 0.5) {
-          data[idx] = data[srcIdx];
-          data[idx+1] = data[srcIdx+1]*0.5;
-          data[idx+2] = data[srcIdx+2]*1.5;
-        }
-      }
-    }
-  }
-  for (let i = 0; i < data.length; i += 4) {
-    if (Math.random() > 0.98) {
-      const val = Math.random()*255;
-      data[i] = val; data[i+1] = val*0.2; data[i+2] = val*0.8;
-    }
-  }
-}
-
-function drawGlitchLines(w, h) {
-  ctx.strokeStyle = 'rgba(0,255,100,0.3)';
-  ctx.lineWidth = 2;
-  for (let i = 0; i < 3; i++) {
-    const y = Math.random()*h;
-    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
-  }
-}
-
-function applyThermal(data) {
-  for (let i = 0; i < data.length; i += 4) {
-    const b = (data[i]+data[i+1]+data[i+2])/3;
-    if (b < 64) { data[i]=0; data[i+1]=0; data[i+2]=b*4; }
-    else if (b < 128) { data[i]=0; data[i+1]=(b-64)*4; data[i+2]=255; }
-    else if (b < 192) { data[i]=(b-128)*4; data[i+1]=255; data[i+2]=255-(b-128)*4; }
-    else { data[i]=255; data[i+1]=255-(b-192)*4; data[i+2]=0; }
-  }
-}
-
-function applyNegative(data) {
-  for (let i = 0; i < data.length; i += 4) {
-    data[i] = 255-data[i];
-    data[i+1] = 255-data[i+1];
-    data[i+2] = 255-data[i+2];
-  }
-}
-
-function applyVintage(data, w, h) {
-  for (let i = 0; i < data.length; i += 4) {
-    const r=data[i], g=data[i+1], b=data[i+2];
-    data[i] = Math.min(255, r*0.393+g*0.769+b*0.189);
-    data[i+1] = Math.min(255, r*0.349+g*0.686+b*0.168);
-    data[i+2] = Math.min(255, r*0.272+g*0.534+b*0.131);
-    if (Math.random() > 0.7) {
-      const n = (Math.random()-0.5)*30;
-      data[i]+=n; data[i+1]+=n; data[i+2]+=n;
-    }
-  }
-}
-
-function drawVignette(w, h) {
-  const g = ctx.createRadialGradient(w/2,h/2,h*0.3,w/2,h/2,h*0.8);
-  g.addColorStop(0,'rgba(0,0,0,0)');
-  g.addColorStop(1,'rgba(60,30,0,0.6)');
-  ctx.fillStyle = g;
-  ctx.fillRect(0,0,w,h);
-}
-
-function drawScratches(w, h) {
-  ctx.strokeStyle = 'rgba(255,255,200,0.15)';
-  ctx.lineWidth = 1;
-  const t = Date.now()/1000;
-  for (let i=0;i<5;i++) {
-    const x = (Math.sin(t*0.3+i*2)*0.5+0.5)*w;
-    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x+Math.sin(t+i)*20,h); ctx.stroke();
-  }
-}
-
-function applyXRay(data) {
-  for (let i = 0; i < data.length; i += 4) {
-    const b = 255-(data[i]+data[i+1]+data[i+2])/3;
-    data[i] = b*0.3; data[i+1] = b*0.9; data[i+2] = b*0.5;
-  }
-}
-
-function applyPortal(data, w, h) {
-  const t = Date.now()/1000;
-  const cx=w/2, cy=h/2;
-  for (let y=0;y<h;y++) {
-    for (let x=0;x<w;x++) {
-      const dx=x-cx, dy=y-cy;
-      const dist = Math.sqrt(dx*dx+dy*dy);
-      const ang = Math.atan2(dy,dx);
-      const twist = Math.sin(dist*0.02-t*2)*0.3;
-      const newAng = ang+twist;
-      const srcX = Math.floor(cx+Math.cos(newAng)*dist);
-      const srcY = Math.floor(cy+Math.sin(newAng)*dist);
-      if (srcX>=0 && srcX<w && srcY>=0 && srcY<h) {
-        const srcIdx=(srcY*w+srcX)*4;
-        const dstIdx=(y*w+x)*4;
-        data[dstIdx]=data[srcIdx];
-        data[dstIdx+1]=data[srcIdx+1];
-        data[dstIdx+2]=data[srcIdx+2];
-      }
-    }
-  }
-  for (let i=0;i<data.length;i+=4) {
-    data[i]=data[i]*0.8+30;
-    data[i+1]=data[i+1]*0.6;
-    data[i+2]=data[i+2]*1.2+50;
-  }
-}
-
-function applyMatrix(w, h) {
-  const imageData = ctx.getImageData(0,0,w,h);
-  const data = imageData.data;
-  for (let i=0;i<data.length;i+=4) {
-    const b=(data[i]+data[i+1]+data[i+2])/3;
-    data[i]=b*0.2; data[i+1]=b*0.8; data[i+2]=b*0.2;
-  }
-  ctx.putImageData(imageData,0,0);
-  ctx.fillStyle = 'rgba(0,0,0,0.1)';
-  ctx.fillRect(0,0,w,h);
-  ctx.font = '16px monospace';
-  const cols = matrixDrops.length;
-  const colWidth = w/cols;
-  for (let i=0;i<cols;i++) {
-    const drop = matrixDrops[i];
-    const chars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン';
-    const ch = chars[Math.floor(Math.random()*chars.length)];
-    ctx.fillStyle = `rgba(0,255,70,${Math.random()*0.5+0.5})`;
-    ctx.fillText(ch, i*colWidth, drop.y);
-    drop.y += drop.speed;
-    if (drop.y > h) { drop.y = -20; drop.speed = 2+Math.random()*4; }
-  }
-}
-
-function applyBlood(data) {
-  for (let i=0;i<data.length;i+=4) {
-    data[i] = Math.min(255, data[i]*1.3+30);
-    data[i+1] = data[i+1]*0.5;
-    data[i+2] = data[i+2]*0.4;
-  }
-}
-
-function takePhoto() {
+function takePhoto(){
   flash.style.opacity = '1';
-  setTimeout(() => flash.style.opacity = '0', 100);
-  const photoCanvas = document.createElement('canvas');
-  photoCanvas.width = canvas.width;
-  photoCanvas.height = canvas.height;
-  const pCtx = photoCanvas.getContext('2d');
-  pCtx.drawImage(canvas, 0, 0);
-  pCtx.fillStyle = 'rgba(0,255,0,0.5)';
-  pCtx.font = '14px monospace';
-  pCtx.fillText('PARANORMAL CAM', 15, photoCanvas.height-15);
-  const dataUrl = photoCanvas.toDataURL('image/jpeg', 0.9);
+  setTimeout(() => flash.style.opacity = '0', 80);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
   photos.unshift(dataUrl);
-  updateGalleryPreview();
-  showToast('📸 Фото сохранено!');
-  try {
-    const link = document.createElement('a');
-    link.download = 'paranormal_' + Date.now() + '.jpg';
-    link.href = dataUrl;
-    link.click();
-  } catch(e) {}
+  updateGalPreview();
+  showToast('📸 Фото сохранено');
+  try{
+    const a = document.createElement('a');
+    a.download = 'paranormal_' + Date.now() + '.jpg';
+    a.href = dataUrl;
+    a.click();
+  }catch(e){}
 }
 
-function updateGalleryPreview() {
-  if (photos.length > 0) {
-    galleryBtn.innerHTML = `<img src="${photos[0]}" alt="preview">`;
-  }
+function updateGalPreview(){
+  if(photos.length > 0) galBtn.innerHTML = `<img src="${photos[0]}" alt="">`;
 }
 
-function openGallery() {
-  galleryGrid.innerHTML = '';
-  photos.forEach((photo, index) => {
-    const item = document.createElement('div');
-    item.className = 'gallery-item';
-    item.innerHTML = `<img src="${photo}" alt="photo"><button class="del-btn" data-index="${index}">×</button>`;
-    galleryGrid.appendChild(item);
+function openGal(){
+  ggrid.innerHTML = '';
+  photos.forEach((p,i) => {
+    const d = document.createElement('div');
+    d.className = 'gitem';
+    d.innerHTML = `<img src="${p}"><button data-i="${i}">×</button>`;
+    ggrid.appendChild(d);
   });
-  galleryGrid.querySelectorAll('.del-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+  ggrid.querySelectorAll('button').forEach(b => {
+    b.onclick = (e) => {
       e.stopPropagation();
-      const idx = parseInt(btn.dataset.index);
-      photos.splice(idx, 1);
-      openGallery();
-      if (photos.length === 0) galleryBtn.innerHTML = '🖼️';
-      else updateGalleryPreview();
-    });
+      photos.splice(parseInt(b.dataset.i), 1);
+      openGal();
+      if(photos.length === 0) galBtn.innerHTML = '🖼️';
+      else updateGalPreview();
+    };
   });
-  galleryOverlay.classList.add('active');
+  gallery.classList.add('active');
 }
 
-function showToast(msg) {
-  toast.textContent = msg;
+function showToast(m){
+  toast.textContent = m;
   toast.classList.add('show');
   setTimeout(() => toast.classList.remove('show'), 2000);
 }
 
 startBtn.addEventListener('click', startCamera);
 shutter.addEventListener('click', takePhoto);
-galleryBtn.addEventListener('click', openGallery);
-closeGallery.addEventListener('click', () => galleryOverlay.classList.remove('active'));
-switchCamBtns.forEach(btn => btn.addEventListener('click', switchCamera));
-effectBtns.forEach(btn => {
-  btn.addEventListener('click', () => {
-    effectBtns.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentEffect = btn.dataset.effect;
-    showToast('Эффект: ' + btn.textContent);
+galBtn.addEventListener('click', openGal);
+gclose.addEventListener('click', () => gallery.classList.remove('active'));
+document.getElementById('switch-cam').addEventListener('click', switchCam);
+document.getElementById('switch-cam2').addEventListener('click', switchCam);
+
+fxBtns.forEach(b => {
+  b.addEventListener('click', () => {
+    fxBtns.forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    currentFx = b.dataset.fx;
+    currentProgram = programs[currentFx] || programs['normal'];
+    showToast(b.textContent);
   });
 });
-window.addEventListener('resize', () => { if (video.videoWidth) resizeCanvas(); });
-document.addEventListener('touchmove', (e) => {
-  if (e.target.closest('#effects-strip')) return;
+
+window.addEventListener('resize', resize);
+document.addEventListener('touchmove', e => {
+  if(e.target.closest('#strip')) return;
   e.preventDefault();
 }, { passive: false });
 </script>
