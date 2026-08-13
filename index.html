@@ -458,7 +458,6 @@ async function startCamera(){
     }
     zoomSlider.style.opacity = '0.8';
 
-    }
     await new Promise(r => { video.onloadedmetadata = () => { video.play(); r(); }; });
     initWebGL();
     document.getElementById('start').style.display = 'none';
