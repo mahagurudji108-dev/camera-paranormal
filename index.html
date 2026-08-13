@@ -549,8 +549,9 @@ document.addEventListener('touchmove', e => {
 }, { passive: false });
 
 zoomSlider.addEventListener('input', () => {
+  const val = parseFloat(zoomSlider.value);
   if (track && track.getCapabilities().zoom) {
-    track.applyConstraints({ advanced: [{ zoom: parseFloat(zoomSlider.value) }] }).catch(()=>{});
+    track.applyConstraints({ advanced: [{ zoom: val }] }).catch(()=>{});
   }
 });
 
